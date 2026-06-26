@@ -581,6 +581,9 @@ function renderWork() {
           <button id="confirmColumn">Xác nhận cột này</button>
         </div>
       </div>
+      <div class="actions column-extra-actions">
+        <button id="addColumn">Thêm cột</button>
+      </div>
     </section>`;
 }
 
@@ -687,6 +690,8 @@ function bindEvents() {
   document.querySelectorAll("[data-column]").forEach((btn) => {
     btn.addEventListener("click", () => setState({ selectedColumn: btn.dataset.column, view: "work" }));
   });
+  const addColumn = document.getElementById("addColumn");
+  if (addColumn) addColumn.addEventListener("click", addManualColumn);
 
   const loHaThe = document.getElementById("loHaThe");
   if (loHaThe) loHaThe.addEventListener("input", (e) => updateColumn(state.selectedColumn, (col) => ({ ...col, loHaThe: e.target.value.replace(/\D/g, "").slice(0, 2) })));
@@ -847,6 +852,31 @@ function renameSelectedColumn(newSoCotRaw) {
   setState({ session: nextSession, selectedColumn: newSoCot, message: `Đã đổi số cột ${oldSoCot} thành ${newSoCot}.` });
 }
 
+function addManualColumn() {
+  const soCot = normalizeText(window.prompt("Nhập số cột mới cần thêm:", ""));
+  if (!soCot) {
+    setState({ message: "Chưa thêm cột vì chưa nhập số cột." });
+    return;
+  }
+  if (state.session.columns[soCot]) {
+    setState({ selectedColumn: soCot, view: "work", message: `Cột ${soCot} đã có trong danh sách, em mở cột này để sếp làm tiếp.` });
+    return;
+  }
+  const column = {
+    soCot,
+    loHaThe: deriveLoHaTheFromSoCot(soCot),
+    defaultPhase: "A",
+    locations: [createBoxLocation(1, "1")],
+    manual: true,
+  };
+  const nextSession = addLog(
+    { ...state.session, columns: { ...state.session.columns, [soCot]: column } },
+    `Them cot moi tai hien truong: ${soCot}`,
+    soCot,
+  );
+  setState({ session: nextSession, selectedColumn: soCot, view: "work", showAddCustomerForm: true, message: `Đã thêm cột ${soCot}. Sếp nhập Số thiết bị ở phần Thêm khách thực tế.` });
+}
+
 function clearAssignments() {
   updateColumn(state.selectedColumn, (column) => ({
     ...column,
@@ -868,13 +898,14 @@ function confirmSelectedColumn() {
 function moveOtherCustomerToColumn(session, customerId, targetSoCot, patch = {}) {
   const otherCustomer = (session.otherCustomers || []).find((item) => item.id === customerId);
   if (!otherCustomer) return session;
+  const sourceSoCot = otherCustomer.originalSoCot || otherCustomer.soCot || "";
   const customer = {
     ...otherCustomer,
     ...patch,
     soCot: targetSoCot,
-    originalSoCot: otherCustomer.originalSoCot || otherCustomer.soCot,
+    originalSoCot: sourceSoCot,
     restoredAt: nowText(),
-    note: normalizeText(patch.note) || `Chuyen tu muc khach hang khac vao cot ${targetSoCot}`,
+    note: normalizeText(patch.note) || `Chuyen tu cot ${sourceSoCot || "khac"} vao cot ${targetSoCot}`,
   };
   delete customer.movedToOtherAt;
   delete customer.movedReason;
@@ -1025,27 +1056,22 @@ function downloadBlob(blob, fileName) {
   URL.revokeObjectURL(url);
 }
 
-function openZaloWeb() {
-  window.open("https://chat.zalo.me", "_blank", "noopener");
-}
-
 async function shareOrDownloadBlob(blob, fileName, title, text) {
   const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
-  try {
-    if (navigator.canShare?.({ files: [file] })) {
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
       await navigator.share({ title, text, files: [file] });
-      setState({ message: "Da mo bang chia se. Sep chon Zalo neu may co ho tro." });
+      setState({ message: "Đã mở bảng chia sẻ file. Sếp chọn Zalo để gửi file." });
       return true;
-    }
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      setState({ message: "Sep da dong bang chia se, file chua duoc gui." });
-      return false;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        setState({ message: "Sếp đã đóng bảng chia sẻ, file chưa được gửi." });
+        return false;
+      }
     }
   }
   downloadBlob(blob, fileName);
-  openZaloWeb();
-  setState({ message: "May/trinh duyet nay chua ho tro dua file thang vao Zalo. Em da tai file va mo Zalo Web, sep keo file vua tai vao khung chat de gui." });
+  setState({ message: "Máy/trình duyệt này chưa hỗ trợ mở bảng chia sẻ file. Em đã tải file về máy, sếp mở Zalo rồi chọn file vừa tải để gửi." });
   return false;
 }
 
@@ -1056,12 +1082,7 @@ async function downloadBackup(shareAfter = false) {
     await shareOrDownloadBlob(blob, fileName, "Backup Zalo", "File backup chuan hoa cong to.");
     return;
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, fileName);
 }
 
 async function importBackup(event) {
