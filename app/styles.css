@@ -236,6 +236,13 @@ h3 { font-size: 16px; margin-bottom: 10px; }
 .column-card em { font-style: normal; font-size: 12px; color: #64736f; }
 .column-card em.done { color: #166534; font-weight: 900; }
 .column-card em.doing { color: #92400e; font-weight: 900; }
+.add-column-card {
+  border-style: dashed;
+  background: #f8fcfb;
+  color: #0f766e;
+}
+.add-column-card:hover { background: #ecfdf5; }
+.add-column-card em { color: #0f766e; font-weight: 900; }
 
 .work-layout { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 14px; align-items: start; }
 .control-panel { position: sticky; top: 82px; }

@@ -348,6 +348,16 @@ function findOtherCustomerByDevice(soTbi) {
   return (state.session.otherCustomers || []).find((customer) => normalizeText(customer.soTbi) === device) || null;
 }
 
+function insertCustomerNearColumn(customers, customer, targetSoCot) {
+  const list = [...(customers || [])];
+  const lastIndex = list.reduce((foundIndex, item, index) => (item.soCot === targetSoCot ? index : foundIndex), -1);
+  if (lastIndex >= 0) {
+    list.splice(lastIndex + 1, 0, customer);
+    return list.map((item, index) => ({ ...item, order: index + 1 }));
+  }
+  return [...list, customer].map((item, index) => ({ ...item, order: index + 1 }));
+}
+
 function setState(patch) {
   if (patch.session) patch = { ...patch, session: normalizeSessionShape(patch.session) };
   state = { ...state, ...patch };
@@ -488,6 +498,10 @@ function renderColumns(errors) {
             </button>`;
           })
           .join("")}
+        <button class="column-card add-column-card" id="addColumn" type="button">
+          <span><strong>+ Thêm cột</strong><small>Cột phát sinh ngoài hiện trường</small></span>
+          <em>Thêm mới</em>
+        </button>
       </div>
     </section>`;
 }
@@ -580,9 +594,6 @@ function renderWork() {
           <button class="secondary" id="addCabinet">Thêm tủ</button>
           <button id="confirmColumn">Xác nhận cột này</button>
         </div>
-      </div>
-      <div class="actions column-extra-actions">
-        <button id="addColumn">Thêm cột</button>
       </div>
     </section>`;
 }
@@ -911,7 +922,7 @@ function moveOtherCustomerToColumn(session, customerId, targetSoCot, patch = {})
   delete customer.movedReason;
   return {
     ...session,
-    customers: [...(session.customers || []), customer],
+    customers: insertCustomerNearColumn(session.customers || [], customer, targetSoCot),
     otherCustomers: (session.otherCustomers || []).filter((item) => item.id !== customerId),
   };
 }
@@ -960,7 +971,7 @@ function addManualCustomer() {
   };
 
   const nextSession = addLog(
-    { ...state.session, customers: [...state.session.customers, customer] },
+    { ...state.session, customers: insertCustomerNearColumn(state.session.customers, customer, state.selectedColumn) },
     `Thêm khách thực tế: ${customer.maKhang} - STB ${customer.soTbi}`,
     state.selectedColumn,
   );
