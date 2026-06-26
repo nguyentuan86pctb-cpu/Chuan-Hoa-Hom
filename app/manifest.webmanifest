@@ -1,0 +1,33 @@
+{
+  "name": "Chuáº©n hÃ³a mÃ£ hÃ²m cÃ´ng tÆ¡",
+  "short_name": "Chuáº©n hÃ³a CT",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#0f766e",
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "excel",
+          "accept": [
+            ".xlsx",
+            ".xls",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel"
+          ]
+        }
+      ]
+    }
+  },
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
