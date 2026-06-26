@@ -52,7 +52,9 @@ Khi bấm **Xóa khách**, app sẽ không xóa mất dữ liệu mà chuyển k
 
 Nếu nhập **Số thiết bị** ở phần **Thêm khách thực tế** mà số đó đang nằm trong **Khách hàng khác**, app sẽ tự đưa khách đó vào cột hiện tại để tránh tạo trùng. Khi xuất file, các khách còn nằm trong mục này được ghi thêm ở sheet `KHACH_HANG_KHAC`.
 
-Nút **Xuất nháp & chia sẻ Zalo** dùng để gửi bản nháp, tên file sẽ ghi rõ trạm nào. Nút **Xuất & chia sẻ Zalo** dùng để gửi bản hoàn thành. Nếu máy/trình duyệt hỗ trợ chia sẻ file, chọn Zalo để gửi luôn. Nếu dùng Zalo PC hoặc trình duyệt không hỗ trợ chia sẻ trực tiếp, app sẽ tải file và mở Zalo Web để sếp kéo file vừa tải xuống vào khung chat Zalo.
+Ở màn **Danh sách cột**, cuối danh sách có nút **Thêm cột**. Dùng nút này khi ngoài hiện trường có cột phát sinh chưa có trong file Excel, sau đó nhập khách ở phần **Thêm khách thực tế**.
+
+Nút **Xuất nháp & chia sẻ Zalo** dùng để gửi bản nháp, tên file sẽ ghi rõ trạm nào. Nút **Xuất & chia sẻ Zalo** dùng để gửi bản hoàn thành. Nếu điện thoại/trình duyệt hỗ trợ chia sẻ file, app sẽ mở bảng chia sẻ để sếp chọn Zalo và gửi file Excel trực tiếp.
 
 Người ở hiện trường khi nhận file qua Zalo có thể mở ngay trong đoạn chat Zalo. Nếu muốn lưu lại, mới cần bấm tải/lưu file trên máy hoặc điện thoại.
 
