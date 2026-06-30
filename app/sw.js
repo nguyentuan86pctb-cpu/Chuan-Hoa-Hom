@@ -1,4 +1,4 @@
-const CACHE_NAME = "chuan-hoa-cong-to-v3";
+const CACHE_NAME = "chuan-hoa-cong-to-v4";
 const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest", "/icon.svg"];
 const INCOMING_DB_NAME = "chuan-hoa-incoming-files";
 const INCOMING_DB_STORE = "files";

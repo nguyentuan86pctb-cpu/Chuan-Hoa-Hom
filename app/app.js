@@ -6,7 +6,7 @@ const INCOMING_FILE_KEY = "latest-excel";
 const SESSION_KEY = "current";
 const STANDARD_SHEET_NAME = "Sheet1";
 const REQUIRED_COLUMNS = ["MA_KHANG", "TEN_KHANG", "SO_TBI", "SO_COT", "Tram", "CHUAN_HOA"];
-const EXPORT_COLUMNS = [...REQUIRED_COLUMNS, "GHI_CHU"];
+const EXPORT_COLUMNS = [...REQUIRED_COLUMNS, "COT_MOI", "GHI_CHU"];
 const BOX_TYPES = [
   { label: "H1", value: "1", capacity: 1, cols: 1 },
   { label: "H2", value: "2", capacity: 2, cols: 2 },
@@ -394,6 +394,25 @@ function updateColumn(soCot, patcher) {
   });
 }
 
+function commitImportField(fieldName, value) {
+  const nextValue = value ?? "";
+  if (state.session[fieldName] === nextValue) return;
+  state.session = normalizeSessionShape({ ...state.session, [fieldName]: nextValue });
+  scheduleSave();
+}
+
+function bindCommitOnDone(input, fieldName) {
+  if (!input) return;
+  input.addEventListener("change", (event) => commitImportField(fieldName, event.target.value));
+  input.addEventListener("blur", (event) => commitImportField(fieldName, event.target.value));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    }
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
 }
@@ -493,7 +512,7 @@ function renderColumns(errors) {
             const status = columnStatus(state.session, soCot);
             const statusClass = status === "Đã xong" ? "done-card" : status === "Đang làm" ? "doing-card" : "";
             return `<button class="column-card ${statusClass} ${state.selectedColumn === soCot ? "selected" : ""}" data-column="${escapeHtml(soCot)}">
-              <span><strong>Cột ${escapeHtml(soCot)}</strong><small>${grouped[soCot]?.length || 0} khách hàng</small></span>
+              <span><strong>Cột ${escapeHtml(soCot)}</strong><small>${state.session.columns[soCot]?.newSoCot ? `Cột mới: ${escapeHtml(state.session.columns[soCot].newSoCot)} - ` : ""}${grouped[soCot]?.length || 0} khách hàng</small></span>
               <em class="${status === "Đã xong" ? "done" : status === "Đang làm" ? "doing" : ""}">${status}</em>
             </button>`;
           })
@@ -525,8 +544,8 @@ function renderWork() {
           <span>${customers.length} khách</span>
         </div>
         <div class="field-grid compact">
-          <label>Số cột
-            <input id="soCotEdit" value="${escapeHtml(state.selectedColumn)}">
+          <label>Số cột mới
+            <input id="soCotEdit" value="${escapeHtml(column.newSoCot || "")}" placeholder="Nếu cột thực tế khác số cột gốc">
           </label>
           <label>Lộ mặc định
             <input id="loHaThe" maxlength="2" value="${escapeHtml(column.loHaThe)}">
@@ -679,11 +698,11 @@ function bindEvents() {
   });
 
   const officerName = document.getElementById("officerName");
-  if (officerName) officerName.addEventListener("input", (e) => updateSession((prev) => ({ ...prev, officerName: e.target.value })));
   const unitName = document.getElementById("unitName");
-  if (unitName) unitName.addEventListener("input", (e) => updateSession((prev) => ({ ...prev, unitName: e.target.value })));
   const stationName = document.getElementById("stationName");
-  if (stationName) stationName.addEventListener("input", (e) => updateSession((prev) => ({ ...prev, stationName: e.target.value })));
+  bindCommitOnDone(officerName, "officerName");
+  bindCommitOnDone(unitName, "unitName");
+  bindCommitOnDone(stationName, "stationName");
   const excelInput = document.getElementById("excelInput");
   if (excelInput) excelInput.addEventListener("change", handleImport);
   const backupInput = document.getElementById("backupInput");
@@ -837,30 +856,45 @@ function autoAssignColumn() {
 function renameSelectedColumn(newSoCotRaw) {
   const oldSoCot = state.selectedColumn;
   const newSoCot = normalizeText(newSoCotRaw);
-  if (!oldSoCot || !newSoCot || newSoCot === oldSoCot) {
+  if (!oldSoCot) {
     render();
     return;
   }
-  if (state.session.columns[newSoCot]) {
-    setState({ message: `Số cột ${newSoCot} đã tồn tại, em chưa gộp để tránh nhầm dữ liệu.` });
+
+  const currentColumn = state.session.columns[oldSoCot];
+  if (!newSoCot || newSoCot === oldSoCot) {
+    const nextSession = addLog(
+      {
+        ...state.session,
+        columns: {
+          ...state.session.columns,
+          [oldSoCot]: { ...currentColumn, newSoCot: "", loHaThe: deriveLoHaTheFromSoCot(oldSoCot) },
+        },
+      },
+      `Giữ nguyên số cột ${oldSoCot}`,
+      oldSoCot,
+    );
+    setState({ session: nextSession, selectedColumn: oldSoCot, message: `Đã giữ nguyên số cột ${oldSoCot}.` });
     return;
   }
-
-  const nextColumns = { ...state.session.columns };
-  const renamedColumn = { ...nextColumns[oldSoCot], soCot: newSoCot, loHaThe: deriveLoHaTheFromSoCot(newSoCot) };
-  delete nextColumns[oldSoCot];
-  nextColumns[newSoCot] = renamedColumn;
 
   const nextSession = addLog(
     {
       ...state.session,
-      customers: state.session.customers.map((customer) => (customer.soCot === oldSoCot ? { ...customer, soCot: newSoCot } : customer)),
-      columns: nextColumns,
+      columns: {
+        ...state.session.columns,
+        [oldSoCot]: {
+          ...currentColumn,
+          newSoCot,
+          loHaThe: deriveLoHaTheFromSoCot(newSoCot),
+          columnChangeNote: `Thay đổi số cột từ ${oldSoCot} sang ${newSoCot}`,
+        },
+      },
     },
-    `Sửa số cột từ ${oldSoCot} sang ${newSoCot}`,
-    newSoCot,
+    `Ghi số cột mới ${newSoCot} cho cột gốc ${oldSoCot}`,
+    oldSoCot,
   );
-  setState({ session: nextSession, selectedColumn: newSoCot, message: `Đã đổi số cột ${oldSoCot} thành ${newSoCot}.` });
+  setState({ session: nextSession, selectedColumn: oldSoCot, message: `Đã ghi cột mới ${newSoCot}. Cột gốc ${oldSoCot} vẫn được giữ, khi xuất Excel sẽ có cột COT_MOI và ghi chú thay đổi số cột.` });
 }
 
 function addManualColumn() {
@@ -1121,6 +1155,20 @@ function markDeletedRowsRed(sheet, activeCount, deletedCount) {
   }
 }
 
+function getColumnChange(customer) {
+  const column = state.session.columns?.[customer.soCot];
+  const newSoCot = normalizeText(column?.newSoCot);
+  if (!newSoCot || newSoCot === customer.soCot) return { newSoCot: "", note: "" };
+  return { newSoCot, note: column?.columnChangeNote || `Thay đổi số cột từ ${customer.soCot} sang ${newSoCot}` };
+}
+
+function buildCustomerNote(customer) {
+  const columnChange = getColumnChange(customer);
+  if (columnChange.note) return columnChange.note;
+  if (customer.manual) return "Thêm mới";
+  return normalizeText(customer.note);
+}
+
 function buildWorkbook(onlyDraft) {
   const errors = validateSession(state.session);
   const assigned = getAssignedCodes(state.session);
@@ -1128,6 +1176,7 @@ function buildWorkbook(onlyDraft) {
 
   const activeStandardRows = state.session.customers.map((customer) => {
     const item = assignedByCustomer.get(customer.id);
+    const columnChange = getColumnChange(customer);
     return {
       MA_KHANG: customer.maKhang,
       TEN_KHANG: customer.tenKhang,
@@ -1135,7 +1184,8 @@ function buildWorkbook(onlyDraft) {
       SO_COT: customer.soCot,
       Tram: customer.tram,
       CHUAN_HOA: item?.code || customer.chuanHoaCu || "",
-      GHI_CHU: customer.manual ? "Thêm mới" : normalizeText(customer.note),
+      COT_MOI: columnChange.newSoCot,
+      GHI_CHU: buildCustomerNote(customer),
     };
   });
   const deletedStandardRows = (state.session.deletedCustomers || []).map((customer) => ({
@@ -1145,6 +1195,7 @@ function buildWorkbook(onlyDraft) {
     SO_COT: customer.soCot,
     Tram: customer.tram,
     CHUAN_HOA: customer.chuanHoaCu || "",
+    COT_MOI: "",
     GHI_CHU: customer.note || `Đã xóa - Lý do: ${customer.deleteReason || ""}`,
   }));
   const otherStandardRows = (state.session.otherCustomers || []).map((customer) => ({
@@ -1154,6 +1205,7 @@ function buildWorkbook(onlyDraft) {
     SO_COT: customer.originalSoCot || customer.soCot,
     Tram: customer.tram,
     CHUAN_HOA: customer.chuanHoaCu || "",
+    COT_MOI: "",
     GHI_CHU: customer.note || `Khach hang khac - ly do: ${customer.movedReason || ""}`,
   }));
   const standardRows = [...activeStandardRows, ...otherStandardRows, ...deletedStandardRows];
@@ -1163,6 +1215,7 @@ function buildWorkbook(onlyDraft) {
     const location = item?.location;
     return {
       "Số cột": customer.soCot,
+      "Số cột mới": getColumnChange(customer).newSoCot,
       "Mã khách hàng": customer.maKhang,
       "Tên khách hàng": customer.tenKhang,
       "Số thiết bị": customer.soTbi,
@@ -1189,6 +1242,7 @@ function buildWorkbook(onlyDraft) {
     return {
       "Tên trạm": getStationName(),
       "Số cột": soCot,
+      "Số cột mới": state.session.columns[soCot].newSoCot || "",
       "Tổng khách hàng": total,
       "Đã gán": assignedCount,
       "Chưa gán": total - assignedCount,
